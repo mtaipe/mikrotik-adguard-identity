@@ -1,0 +1,29 @@
+name: adguard-home
+descr: AdGuard Home
+page: https://adguard.com/adguard-home/overview.html
+category: network
+default-credentials: none
+
+services:
+  adguard:
+    image: docker.io/adguard/adguardhome:latest
+    restart: unless-stopped
+
+    entrypoint:
+      - /opt/adguardhome/AdGuardHome
+
+    command:
+      - --no-check-update
+      - -c
+      - /opt/adguardhome/conf/AdGuardHome.yaml
+      - -w
+      - /opt/adguardhome/work
+
+    ports:
+      - 53:53:tcp
+      - 53:53:udp
+      - 3000:3000:tcp
+
+    volumes:
+      - adguard-conf:/opt/adguardhome/conf
+      - adguard-work:/opt/adguardhome/work

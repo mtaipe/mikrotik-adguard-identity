@@ -1,0 +1,26 @@
+name: mikrotik-adguard-identity
+descr: Synchronizes MikroTik RADIUS and DHCP identities with AdGuard Home clients
+category: network
+auto-update: false
+default-credential: none
+
+services:
+  identity-sync:
+    image: docker.io/mtaipe/mikrotik-adguard-identity:1
+    container_name: mikrotik-adguard-identity
+    environment:
+      MIKROTIK_HOST: "192.168.0.1"
+      MIKROTIK_USER: "identitysync"
+      MIKROTIK_PASSWORD: ""
+      ADGUARD_URL: "http://192.168.0.103"
+      ADGUARD_USER: "admin"
+      ADGUARD_PASSWORD: ""
+      KID_CONTROL_API_TOKEN: ""
+    ports:
+      - 1514:1514/udp:syslog
+      - 8080:8080/tcp:web
+
+networks:
+  default:
+    name: lan
+    external: true

@@ -1,0 +1,6 @@
+.git
+.gitea
+.env
+README.md
+*.zip
+bin
