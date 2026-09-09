@@ -9,7 +9,7 @@ service can run directly on the router.
 
 The complete template is [`mikrotik-app/identity-sync.yaml`](../mikrotik-app/identity-sync.yaml).
 
-After copying and pasting the template into MikroTik Apps, use the App **General** tab to set addresses, usernames, passwords and, if Kid Control synchronization is enabled, `KID_CONTROL_API_TOKEN`.
+After pasting the template into MikroTik Apps, use the App **General** tab to set addresses and credentials. Optional Kid Control and nxFilter settings are also exposed there; leave them disabled/empty when unused.
 
 If the app receives its own VETH address, RouterOS remote logging can be
 sent directly to that address on UDP 1514. Restrict the RouterOS API
@@ -64,6 +64,13 @@ These can normally be omitted from the MikroTik App YAML.
 | `PRINT_TABLE_INTERVAL` | `60` | Seconds between identity-state summaries in the application log. |
 | `INCOMPLETE_RADIUS_PACKET_TIMEOUT` | `30` | Seconds before an incomplete reconstructed RADIUS packet is discarded. |
 | `KID_CONTROL_API_TOKEN` | empty | Enables and protects `/api/kid-control`. When empty, that endpoint is disabled. |
+| `NXFILTER_ENABLED` | `false` | Enables the nxFilter RADIUS Accounting backend. |
+| `NXFILTER_HOST` | empty | nxFilter host/IP. Required only when nxFilter is enabled. |
+| `NXFILTER_ACCOUNTING_PORT` | `1813` | nxFilter RADIUS Accounting UDP port. |
+| `NXFILTER_SHARED_SECRET` | empty | RADIUS accounting shared secret. Required only when nxFilter is enabled. |
+| `NXFILTER_NAS_IDENTIFIER` | `mikrotik-adguard-identity` | NAS-Identifier sent to nxFilter. |
+| `NXFILTER_TIMEOUT` | `5` | Seconds to wait for an nxFilter Accounting-Response. |
+| `NXFILTER_REFRESH_INTERVAL` | `300` | Seconds between active-session Interim-Update refreshes. |
 
 For example, changing only the reconciliation interval requires adding only:
 
@@ -73,6 +80,8 @@ environment:
 ```
 
 There is no need to repeat unrelated defaults.
+
+When nxFilter support is enabled, only `NXFILTER_HOST` and `NXFILTER_SHARED_SECRET` have to be supplied in addition to `NXFILTER_ENABLED=true`; the accounting port, NAS identifier, timeout and refresh interval can use their defaults. See [nxFilter integration](nxfilter.md).
 
 ### Kid Control token
 

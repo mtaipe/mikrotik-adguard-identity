@@ -7,10 +7,6 @@ on:
     tags:
       - "v*"
   workflow_dispatch:
-
-env:
-  IMAGE: ${{ vars.REGISTRY_SITE }}/${{ vars.REGISTRY_PATH }}/mikrotik-adguard-identity
-
 jobs:
   build:
     runs-on: docker-runner
@@ -18,31 +14,44 @@ jobs:
     container:
       image: docker.gitea.com/runner-images:ubuntu-latest
 
+    env:
+      REGISTRY_SITE: ${{ vars.REGISTRY_SITE }}
+      REGISTRY_PATH: ${{ vars.REGISTRY_PATH }}
+      REGISTRY_USER: ${{ vars.REGISTRY_USER }}
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
       - name: Check registry configuration
         shell: bash
-        env:
-          REGISTRY_SITE: ${{ vars.REGISTRY_SITE }}
-          REGISTRY_PATH: ${{ vars.REGISTRY_PATH }}
-          REGISTRY_USER: ${{ vars.REGISTRY_USER }}
-          REGISTRY_TOKEN: ${{ secrets.REGISTRY_TOKEN }}
         run: |
-          test -n "$REGISTRY_SITE"  || { echo "REGISTRY_SITE is missing"; exit 1; }
-          test -n "$REGISTRY_PATH"  || { echo "REGISTRY_PATH is missing"; exit 1; }
-          test -n "$REGISTRY_USER"  || { echo "REGISTRY_USER is missing"; exit 1; }
-          test -n "$REGISTRY_TOKEN" || { echo "REGISTRY_TOKEN is missing"; exit 1; }
+          test -n "$REGISTRY_SITE" || {
+            echo "REGISTRY_SITE is missing"
+            exit 1
+          }
 
-      - name: Login to registry
+          test -n "$REGISTRY_PATH" || {
+            echo "REGISTRY_PATH is missing"
+            exit 1
+          }
+
+          test -n "$REGISTRY_USER" || {
+            echo "REGISTRY_USER is missing"
+            exit 1
+          }
+
+      - name: Login to Gitea registry
         shell: bash
         env:
-          REGISTRY_SITE: ${{ vars.REGISTRY_SITE }}
-          REGISTRY_USER: ${{ vars.REGISTRY_USER }}
           REGISTRY_TOKEN: ${{ secrets.REGISTRY_TOKEN }}
         run: |
-          echo "$REGISTRY_TOKEN" | \
+          test -n "$REGISTRY_TOKEN" || {
+            echo "REGISTRY_TOKEN is missing"
+            exit 1
+          }
+
+          printf '%s\n' "$REGISTRY_TOKEN" | \
             docker login "$REGISTRY_SITE" \
               --username "$REGISTRY_USER" \
               --password-stdin
@@ -57,6 +66,8 @@ jobs:
           REF_TYPE: ${{ gitea.ref_type }}
           REF_NAME: ${{ gitea.ref_name }}
         run: |
+          IMAGE="$REGISTRY_SITE/$REGISTRY_PATH/mikrotik-adguard-identity"
+
           if [[ "$REF_TYPE" == "tag" ]]; then
             {
               echo "tags<<EOF"
@@ -81,3 +92,4 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           provenance: false
+  

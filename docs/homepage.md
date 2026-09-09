@@ -56,6 +56,9 @@ Example:
     "status": "ok",
     "last_sync": "2026-09-05T15:31:22+08:00"
   },
+  "nxfilter": {
+    "status": "disabled"
+  },
   "routeros": {
     "status": "ok",
     "last_reconcile": "2026-09-05T15:30:00+08:00"

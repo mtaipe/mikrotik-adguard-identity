@@ -32,6 +32,11 @@ type statusResponse struct {
 		UnmappedSessions int `json:"unmapped_sessions"`
 		DHCPLeases       int `json:"dhcp_leases"`
 	} `json:"identity"`
+	NxFilter struct {
+		Status    string `json:"status"`
+		LastSync  string `json:"last_sync,omitempty"`
+		LastError string `json:"last_error,omitempty"`
+	} `json:"nxfilter"`
 	AdGuard struct {
 		Status    string `json:"status"`
 		LastSync  string `json:"last_sync,omitempty"`
@@ -76,7 +81,7 @@ func (s *Server) health(w http.ResponseWriter, _ *http.Request) {
 	snap := s.Status.Snapshot()
 	state := "ok"
 	code := http.StatusOK
-	if snap.RouterOS.Status == "error" || snap.AdGuard.Status == "error" {
+	if snap.RouterOS.Status == "error" || snap.AdGuard.Status == "error" || snap.NxFilter.Status == "error" {
 		state = "degraded"
 		code = http.StatusServiceUnavailable
 	}
@@ -87,7 +92,7 @@ func (s *Server) apiStatus(w http.ResponseWriter, _ *http.Request) {
 	stats := s.State.Stats()
 	snap := s.Status.Snapshot()
 	overall := "ok"
-	if snap.RouterOS.Status == "error" || snap.AdGuard.Status == "error" {
+	if snap.RouterOS.Status == "error" || snap.AdGuard.Status == "error" || snap.NxFilter.Status == "error" {
 		overall = "degraded"
 	}
 
@@ -99,6 +104,13 @@ func (s *Server) apiStatus(w http.ResponseWriter, _ *http.Request) {
 	out.Identity.MappedIPs = stats.MappedIPs
 	out.Identity.UnmappedSessions = stats.UnmappedSessions
 	out.Identity.DHCPLeases = stats.DHCPLeases
+	out.NxFilter.Status = snap.NxFilter.Status
+	if snap.NxFilter.Status == "error" {
+		out.NxFilter.LastError = "sync failed"
+	}
+	if !snap.NxFilter.Last.IsZero() {
+		out.NxFilter.LastSync = snap.NxFilter.Last.Format(time.RFC3339)
+	}
 	out.AdGuard.Status = snap.AdGuard.Status
 	if snap.AdGuard.Status == "error" {
 		out.AdGuard.LastError = "sync failed"

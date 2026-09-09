@@ -1,5 +1,5 @@
 name: mikrotik-adguard-identity
-descr: Synchronizes MikroTik RADIUS and DHCP identities with AdGuard Home clients
+descr: Correlates MikroTik RADIUS and DHCP identities for AdGuard Home and nxFilter
 category: network
 auto-update: false
 default-credential: none
@@ -16,6 +16,9 @@ services:
       ADGUARD_USER: "admin"
       ADGUARD_PASSWORD: ""
       KID_CONTROL_API_TOKEN: ""
+      NXFILTER_ENABLED: "false"
+      NXFILTER_HOST: ""
+      NXFILTER_SHARED_SECRET: ""
     ports:
       - 1514:1514/udp:syslog
       - 8080:8080/tcp:web

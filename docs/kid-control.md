@@ -96,7 +96,11 @@ You should receive JSON containing `devices`.
 
 ## 3. Install the RouterOS script
 
-The repository includes [kid-control-sync.rsc](../scripts/kid-control-sync.rsc)
+The repository includes:
+
+```text
+scripts/kid-control-sync.rsc
+```
 
 Open the file and change these two lines:
 

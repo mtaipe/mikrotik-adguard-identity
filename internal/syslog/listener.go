@@ -10,6 +10,7 @@ import (
 
 	"git.tai.pe/homelab/mikrotik-adguard-identity/internal/adguard"
 	"git.tai.pe/homelab/mikrotik-adguard-identity/internal/dhcp"
+	"git.tai.pe/homelab/mikrotik-adguard-identity/internal/nxfilter"
 	"git.tai.pe/homelab/mikrotik-adguard-identity/internal/radius"
 	"git.tai.pe/homelab/mikrotik-adguard-identity/internal/routeros"
 	"git.tai.pe/homelab/mikrotik-adguard-identity/internal/state"
@@ -22,6 +23,7 @@ type Listener struct {
 	Radius            *radius.Parser
 	Reconciler        routeros.Reconciler
 	AdGuard           *adguard.Client
+	NxFilter          *nxfilter.Client
 	ReconcileInterval time.Duration
 	PrintInterval     time.Duration
 	SyncDebounce      time.Duration
@@ -83,6 +85,13 @@ func (l *Listener) timers(ctx context.Context) {
 	defer cleanup.Stop()
 	syncT := time.NewTicker(l.SyncDebounce)
 	defer syncT.Stop()
+	var nxRefresh *time.Ticker
+	var nxRefreshC <-chan time.Time
+	if l.NxFilter != nil && l.NxFilter.Enabled && l.NxFilter.RefreshInterval > 0 {
+		nxRefresh = time.NewTicker(l.NxFilter.RefreshInterval)
+		nxRefreshC = nxRefresh.C
+		defer nxRefresh.Stop()
+	}
 	for {
 		select {
 		case <-ctx.Done():
@@ -97,9 +106,25 @@ func (l *Listener) timers(ctx context.Context) {
 			l.Radius.Cleanup()
 		case <-syncT.C:
 			if l.dirty.Swap(false) {
+				failed := false
 				if err := l.AdGuard.Sync(false); err != nil {
 					log.Printf("AdGuard sync failed: %v", err)
+					failed = true
+				}
+				if l.NxFilter != nil {
+					if err := l.NxFilter.Sync(ctx, false); err != nil {
+						log.Printf("nxFilter sync failed: %v", err)
+						failed = true
+					}
+				}
+				if failed {
 					l.markDirty()
+				}
+			}
+		case <-nxRefreshC:
+			if l.NxFilter != nil {
+				if err := l.NxFilter.Sync(ctx, true); err != nil {
+					log.Printf("nxFilter refresh failed: %v", err)
 				}
 			}
 		}

@@ -29,6 +29,14 @@ type Config struct {
 	HTTPAddress        string
 	KidControlAPIToken string
 
+	NxFilterEnabled         bool
+	NxFilterHost            string
+	NxFilterAccountingPort  int
+	NxFilterSharedSecret    string
+	NxFilterNASIdentifier   string
+	NxFilterTimeout         time.Duration
+	NxFilterRefreshInterval time.Duration
+
 	ReconcileInterval             time.Duration
 	PrintTableInterval            time.Duration
 	IncompleteRadiusPacketTimeout time.Duration
@@ -52,6 +60,13 @@ func Load() (Config, error) {
 		SyslogPort:                    getInt("SYSLOG_LISTEN_PORT", 1514),
 		HTTPAddress:                   get("HTTP_LISTEN_ADDRESS", "0.0.0.0:8080"),
 		KidControlAPIToken:            os.Getenv("KID_CONTROL_API_TOKEN"),
+		NxFilterEnabled:               getBool("NXFILTER_ENABLED", false),
+		NxFilterHost:                  os.Getenv("NXFILTER_HOST"),
+		NxFilterAccountingPort:        getInt("NXFILTER_ACCOUNTING_PORT", 1813),
+		NxFilterSharedSecret:          os.Getenv("NXFILTER_SHARED_SECRET"),
+		NxFilterNASIdentifier:         get("NXFILTER_NAS_IDENTIFIER", "mikrotik-adguard-identity"),
+		NxFilterTimeout:               time.Duration(getInt("NXFILTER_TIMEOUT", 5)) * time.Second,
+		NxFilterRefreshInterval:       time.Duration(getInt("NXFILTER_REFRESH_INTERVAL", 300)) * time.Second,
 		ReconcileInterval:             time.Duration(getInt("RECONCILE_INTERVAL", 1800)) * time.Second,
 		PrintTableInterval:            time.Duration(getInt("PRINT_TABLE_INTERVAL", 60)) * time.Second,
 		IncompleteRadiusPacketTimeout: time.Duration(getInt("INCOMPLETE_RADIUS_PACKET_TIMEOUT", 30)) * time.Second,
@@ -61,6 +76,14 @@ func Load() (Config, error) {
 	}
 	if cfg.AdGuardPassword == "" {
 		return cfg, fmt.Errorf("ADGUARD_PASSWORD is required")
+	}
+	if cfg.NxFilterEnabled {
+		if cfg.NxFilterHost == "" {
+			return cfg, fmt.Errorf("NXFILTER_HOST is required when NXFILTER_ENABLED=true")
+		}
+		if cfg.NxFilterSharedSecret == "" {
+			return cfg, fmt.Errorf("NXFILTER_SHARED_SECRET is required when NXFILTER_ENABLED=true")
+		}
 	}
 	return cfg, nil
 }

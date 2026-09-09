@@ -1,7 +1,8 @@
 # MikroTik AdGuard Identity Sync
 
-Small, ARM64-friendly service that turns authenticated MikroTik RADIUS
-users into persistent AdGuard Home clients.
+Small, ARM64-friendly service that correlates authenticated MikroTik RADIUS
+users with DHCP addresses and feeds identity-aware services such as AdGuard Home
+and nxFilter.
 
 If your network uses MikroTik User Manager or another RADIUS server for
 WPA-Enterprise Wi-Fi or wired 802.1X, AdGuard Home normally sees only IP
@@ -15,8 +16,11 @@ username → MAC                    MAC → IP
             └── Identity Sync ───┘
                      │
                      ▼
-               AdGuard Home
+            resolved identity
              username → current IPs
+                 /          \
+                v            v
+          AdGuard Home    nxFilter
 ```
 
 ## Why?
@@ -80,7 +84,7 @@ Identity Sync combines two sources of information:
 
 Runtime behavior:
 
--   **Startup:** Uses RouterOS API to read active User Manager sessions and
+-   **Startup:** RouterOS API reads active User Manager sessions and
     bound DHCP leases.
 -   **Runtime:** MikroTik remote syslog supplies RADIUS accounting and
     DHCP ACK events.
@@ -113,6 +117,8 @@ Runtime behavior:
     usernames, MAC addresses, client IPs, session IDs or NAS names.
 -   **Optional Kid Control synchronization:** RouterOS can pull the current
     authenticated user-to-MAC map and locally add or reassign Kid Control devices.
+-   **Optional nxFilter 4.7.5.4 integration:** generates enriched RFC 2866 RADIUS
+    Accounting packets containing the resolved username and `Framed-IP-Address`.
 
 ## Requirements
 
@@ -147,6 +153,8 @@ read,api
 For complete RouterOS preparation, including User Manager, WPA-Enterprise, wired 802.1X, logging and the API account, see [MikroTik setup](docs/mikrotik-setup.md).
 
 For optional automatic MikroTik Kid Control device ownership, see [Kid Control synchronization](docs/kid-control.md).
+
+For nxFilter 4.7.5.4 SSO using enriched RADIUS Accounting, see [nxFilter integration](docs/nxfilter.md).
 
 ## Deployment
 
@@ -190,9 +198,30 @@ widget configuration.
     Homepage widget.
 -   [Kid Control synchronization](docs/kid-control.md) - protected identity API,
     RouterOS reconciliation script and scheduler installation.
+-   [nxFilter integration](docs/nxfilter.md) - enriched RADIUS Accounting SSO for
+    nxFilter 4.7.5.4.
 -   [Troubleshooting](docs/troubleshooting.md) - RADIUS reconciliation,
     API checks, parser limitations and diagnostics.
 
+## Project layout
+
+``` text
+cmd/identity-sync/main.go       entry point
+internal/adguard/               AdGuard Home API synchronization
+internal/config/                environment/.env configuration
+internal/dhcp/                  DHCP syslog parser
+internal/models/                event/state models
+internal/nxfilter/              nxFilter RADIUS Accounting backend
+internal/radius/                RADIUS accounting syslog parser
+internal/routeros/              native RouterOS API client + reconciliation
+internal/state/                 in-memory identity state
+internal/syslog/                UDP listener and timers
+internal/util/                  normalization/stable IDs
+scripts/kid-control-sync.rsc     RouterOS Kid Control reconciliation
+mikrotik-app/identity-sync.yaml  MikroTik App template
+.gitea/workflows/build-image.yml
+Dockerfile
+```
 
 ## Known limitation
 

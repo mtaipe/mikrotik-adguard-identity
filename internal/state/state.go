@@ -222,6 +222,48 @@ func (s *State) KidControlDevices() []KidControlDevice {
 	return out
 }
 
+type NxFilterIdentity struct {
+	User string
+	MAC  string
+	IP   string
+}
+
+// NxFilterIdentities returns the current resolved RADIUS user -> MAC -> IPv4
+// mappings. Only active RADIUS sessions with a current DHCP binding are
+// returned. Duplicate user/MAC/IP tuples are collapsed.
+func (s *State) NxFilterIdentities() []NxFilterIdentity {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	seen := map[string]struct{}{}
+	out := []NxFilterIdentity{}
+	for _, sess := range s.sessions {
+		if sess.Username == "" || sess.MAC == "" {
+			continue
+		}
+		b, ok := s.bindings[sess.MAC]
+		if !ok || b.IP == "" {
+			continue
+		}
+		k := sess.Username + "|" + sess.MAC + "|" + b.IP
+		if _, ok := seen[k]; ok {
+			continue
+		}
+		seen[k] = struct{}{}
+		out = append(out, NxFilterIdentity{User: sess.Username, MAC: sess.MAC, IP: b.IP})
+	}
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].User != out[j].User {
+			return out[i].User < out[j].User
+		}
+		if out[i].MAC != out[j].MAC {
+			return out[i].MAC < out[j].MAC
+		}
+		return out[i].IP < out[j].IP
+	})
+	return out
+}
+
 func (s *State) Table() string {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
