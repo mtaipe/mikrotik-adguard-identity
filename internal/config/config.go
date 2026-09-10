@@ -23,8 +23,9 @@ type Config struct {
 	AdGuardRetryInterval time.Duration
 	AdGuardSyncDebounce  time.Duration
 
-	SyslogAddress string
-	SyslogPort    int
+	SyslogAddress        string
+	SyslogPort           int
+	SyslogAllowedSources []string
 
 	HTTPAddress        string
 	KidControlAPIToken string
@@ -58,6 +59,7 @@ func Load() (Config, error) {
 		AdGuardSyncDebounce:           time.Duration(getInt("ADGUARD_SYNC_DEBOUNCE", 2)) * time.Second,
 		SyslogAddress:                 get("SYSLOG_LISTEN_ADDRESS", "0.0.0.0"),
 		SyslogPort:                    getInt("SYSLOG_LISTEN_PORT", 1514),
+		SyslogAllowedSources:          getCSV("SYSLOG_ALLOWED_SOURCES", get("MIKROTIK_HOST", "192.168.0.1")),
 		HTTPAddress:                   get("HTTP_LISTEN_ADDRESS", "0.0.0.0:8080"),
 		KidControlAPIToken:            os.Getenv("KID_CONTROL_API_TOKEN"),
 		NxFilterEnabled:               getBool("NXFILTER_ENABLED", false),
@@ -132,4 +134,19 @@ func loadDotEnv(path string) error {
 		}
 	}
 	return s.Err()
+}
+
+func getCSV(k, def string) []string {
+	v := strings.TrimSpace(os.Getenv(k))
+	if v == "" {
+		v = def
+	}
+	parts := strings.Split(v, ",")
+	out := make([]string, 0, len(parts))
+	for _, part := range parts {
+		if x := strings.TrimSpace(part); x != "" {
+			out = append(out, x)
+		}
+	}
+	return out
 }

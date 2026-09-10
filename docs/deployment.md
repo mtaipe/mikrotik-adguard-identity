@@ -59,6 +59,7 @@ These can normally be omitted from the MikroTik App YAML.
 | `ADGUARD_SYNC_DEBOUNCE` | `2` | Delay in seconds used to group related identity changes before syncing. |
 | `SYSLOG_LISTEN_ADDRESS` | `0.0.0.0` | Address on which the UDP syslog listener binds. |
 | `SYSLOG_LISTEN_PORT` | `1514` | UDP port used for RouterOS RADIUS/DHCP syslog. |
+| `SYSLOG_ALLOWED_SOURCES` | `MIKROTIK_HOST` | Comma-separated router IPs or CIDRs allowed to trigger reconciliation. Unauthorized UDP datagrams are dropped before parsing. |
 | `HTTP_LISTEN_ADDRESS` | `0.0.0.0:8080` | HTTP address for `/health`, `/api/status`, and the optional Kid Control endpoint. |
 | `RECONCILE_INTERVAL` | `1800` | Seconds between full RouterOS reconciliation runs (30 minutes). |
 | `PRINT_TABLE_INTERVAL` | `60` | Seconds between identity-state summaries in the application log. |
@@ -184,3 +185,10 @@ push v1.0.0   -> git.tai.pe/homelab/mikrotik-adguard-identity:v1.0.0
 
 The workflow builds only `linux/arm64`. `provenance: false` keeps the
 registry artifact simple for RouterOS consumption.
+
+### Syslog security model
+
+UDP syslog is **not an authoritative identity source**. Source IP filtering is only defense in depth because UDP source addresses can be spoofed. A valid RADIUS or DHCP syslog event only marks the state dirty. After the debounce interval, Identity Sync reads both active RADIUS sessions and bound DHCP leases from the read-only RouterOS API. Only a complete successful API read may update trusted state and trigger AdGuard/nxFilter synchronization.
+
+For additional isolation, firewall UDP/1514 so only the router(s) can reach the application. `SYSLOG_ALLOWED_SOURCES` should also contain only those router IPs. If either authoritative RouterOS API read fails, the service leaves the previous trusted state unchanged and does not publish a new identity mapping.
+

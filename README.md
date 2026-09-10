@@ -255,3 +255,8 @@ direction and validation**.
 
 This project is released under the [MIT License](LICENSE).
 
+
+## Syslog trust and security
+
+RouterOS UDP syslog is treated as an **untrusted change notification**, not as identity truth. Packets are source-filtered with `SYSLOG_ALLOWED_SOURCES`, but because UDP source IPs can be spoofed, RADIUS/DHCP values from syslog are never written directly to trusted state. Relevant events trigger a debounced read of active RADIUS sessions and bound DHCP leases through the read-only RouterOS API. AdGuard Home and nxFilter are updated only from that verified RouterOS state. Firewall UDP/1514 so only the router can reach the listener as an additional layer.
+

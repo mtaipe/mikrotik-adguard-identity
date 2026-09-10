@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"strings"
 	"sync/atomic"
 	"time"
 
@@ -19,6 +20,7 @@ import (
 type Listener struct {
 	Address           string
 	Port              int
+	AllowedSources    []string
 	State             *state.State
 	Radius            *radius.Parser
 	Reconciler        routeros.Reconciler
@@ -28,6 +30,7 @@ type Listener struct {
 	PrintInterval     time.Duration
 	SyncDebounce      time.Duration
 	dirty             atomic.Bool
+	dropped           atomic.Uint64
 }
 
 func (l *Listener) markDirty() { l.dirty.Store(true) }
@@ -39,7 +42,7 @@ func (l *Listener) Run(ctx context.Context) error {
 		return err
 	}
 	defer conn.Close()
-	log.Printf("syslog listener: udp://%s:%d", l.Address, l.Port)
+	log.Printf("syslog listener: udp://%s:%d allowed_sources=%s", l.Address, l.Port, strings.Join(l.AllowedSources, ","))
 
 	go l.timers(ctx)
 	buf := make([]byte, 65535)
@@ -57,23 +60,62 @@ func (l *Listener) Run(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
+		if !sourceAllowed(remote.IP, l.AllowedSources) {
+			l.dropped.Add(1)
+			continue
+		}
+
+		// SECURITY: syslog is deliberately trigger-only. UDP source addresses can
+		// be spoofed, so parsed RADIUS/DHCP content is never applied to trusted
+		// identity state. A relevant event only schedules a fresh read of the
+		// authoritative RouterOS API state.
 		raw := string(buf[:n])
-		source := remote.IP.String()
-		if ev, ok := l.Radius.Feed(raw, source); ok {
-			if l.State.ApplyRadius(ev) {
-				log.Printf("RADIUS %s user=%s mac=%s nas=%s nas_ip=%s port=%s session=%s", ev.Type, ev.Username, ev.MAC, ev.NASID, ev.NASIP, ev.NASPortID, ev.SessionID)
-				l.markDirty()
+		if _, ok := l.Radius.Feed(raw, remote.IP.String()); ok {
+			l.markDirty()
+			continue
+		}
+		if _, ok := dhcp.Parse(raw); ok {
+			l.markDirty()
+		}
+	}
+}
+
+func sourceAllowed(ip net.IP, rules []string) bool {
+	if ip == nil || len(rules) == 0 {
+		return false
+	}
+	for _, raw := range rules {
+		rule := strings.TrimSpace(raw)
+		if rule == "" {
+			continue
+		}
+		if strings.Contains(rule, "/") {
+			_, network, err := net.ParseCIDR(rule)
+			if err == nil && network.Contains(ip) {
+				return true
 			}
 			continue
 		}
-		if ev, ok := dhcp.Parse(raw); ok {
-			if l.State.ApplyDHCP(ev) {
-				user, _, _ := l.State.IdentityForMAC(ev.MAC)
-				log.Printf("DHCP mac=%s ip=%s user=%s", ev.MAC, ev.IP, user)
-				l.markDirty()
-			}
+		if allowed := net.ParseIP(rule); allowed != nil && allowed.Equal(ip) {
+			return true
 		}
 	}
+	return false
+}
+
+func (l *Listener) syncBackends(ctx context.Context) bool {
+	failed := false
+	if err := l.AdGuard.Sync(false); err != nil {
+		log.Printf("AdGuard sync failed: %v", err)
+		failed = true
+	}
+	if l.NxFilter != nil {
+		if err := l.NxFilter.Sync(ctx, false); err != nil {
+			log.Printf("nxFilter sync failed: %v", err)
+			failed = true
+		}
+	}
+	return !failed
 }
 
 func (l *Listener) timers(ctx context.Context) {
@@ -97,27 +139,27 @@ func (l *Listener) timers(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-reconcile.C:
-			if l.Reconciler.Run(false) {
+			changed, verified := l.Reconciler.Run(false)
+			if verified && changed && !l.syncBackends(ctx) {
 				l.markDirty()
 			}
 		case <-printT.C:
 			log.Print("\n" + l.State.Table())
+			if n := l.dropped.Swap(0); n > 0 {
+				log.Printf("syslog security: dropped %d datagrams from unauthorized sources since last report", n)
+			}
 		case <-cleanup.C:
 			l.Radius.Cleanup()
 		case <-syncT.C:
 			if l.dirty.Swap(false) {
-				failed := false
-				if err := l.AdGuard.Sync(false); err != nil {
-					log.Printf("AdGuard sync failed: %v", err)
-					failed = true
+				// A syslog event is only a wake-up signal. Always re-read both
+				// RouterOS sources and publish only after a complete verified read.
+				changed, verified := l.Reconciler.Run(false)
+				if !verified {
+					l.markDirty()
+					continue
 				}
-				if l.NxFilter != nil {
-					if err := l.NxFilter.Sync(ctx, false); err != nil {
-						log.Printf("nxFilter sync failed: %v", err)
-						failed = true
-					}
-				}
-				if failed {
+				if changed && !l.syncBackends(ctx) {
 					l.markDirty()
 				}
 			}
