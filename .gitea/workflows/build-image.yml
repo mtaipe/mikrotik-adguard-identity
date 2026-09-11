@@ -1,12 +1,12 @@
-name: Build and push ARM64 image
+name: Build and push ARM64 image to Gitea
 
 on:
   push:
     branches:
       - main
-    tags:
-      - "v*"
+
   workflow_dispatch:
+
 jobs:
   build:
     runs-on: docker-runner
@@ -62,27 +62,16 @@ jobs:
       - name: Compute tags
         id: meta
         shell: bash
-        env:
-          REF_TYPE: ${{ gitea.ref_type }}
-          REF_NAME: ${{ gitea.ref_name }}
         run: |
           IMAGE="$REGISTRY_SITE/$REGISTRY_PATH/mikrotik-adguard-identity"
 
-          if [[ "$REF_TYPE" == "tag" ]]; then
-            {
-              echo "tags<<EOF"
-              echo "$IMAGE:$REF_NAME"
-              echo "$IMAGE:latest"
-              echo "EOF"
-            } >> "$GITHUB_OUTPUT"
-          else
-            {
-              echo "tags<<EOF"
-              echo "$IMAGE:main"
-              echo "$IMAGE:latest"
-              echo "EOF"
-            } >> "$GITHUB_OUTPUT"
-          fi
+          {
+            echo "tags<<EOF"
+            echo "$IMAGE:${{ gitea.sha }}"
+            echo "$IMAGE:main"
+            echo "$IMAGE:latest"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Build and push linux/arm64
         uses: docker/build-push-action@v6
@@ -92,4 +81,3 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           provenance: false
-  
