@@ -54,13 +54,15 @@ jobs:
         id: meta
         shell: bash
         env:
-          RELEASE_TAG: ${{ gitea.event.release.tag_name }}
+          RELEASE_TAG: ${{ gitea.ref_name }}
         run: |
           IMAGE="$DOCKERHUB_USERNAME/$DOCKERHUB_IMAGE"
 
+          VERSION="${RELEASE_TAG#v}"
+
           {
             echo "tags<<EOF"
-            echo "$IMAGE:$RELEASE_TAG"
+            echo "$IMAGE:$VERSION"
             echo "$IMAGE:latest"
             echo "EOF"
           } >> "$GITHUB_OUTPUT"
