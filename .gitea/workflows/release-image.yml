@@ -1,9 +1,9 @@
 name: Publish ARM64 image to Docker Hub
 
 on:
-  release:
-    types:
-      - published
+  push:
+    tags:
+      - "v*"
 
   workflow_dispatch:
 
@@ -22,7 +22,7 @@ jobs:
       - name: Checkout release
         uses: actions/checkout@v4
         with:
-          ref: ${{ gitea.event.release.tag_name }}
+          ref: ${{ gitea.ref_name }}
 
       - name: Check Docker Hub configuration
         shell: bash
