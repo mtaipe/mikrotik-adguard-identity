@@ -73,21 +73,71 @@ func Load() (Config, error) {
 		PrintTableInterval:            time.Duration(getInt("PRINT_TABLE_INTERVAL", 60)) * time.Second,
 		IncompleteRadiusPacketTimeout: time.Duration(getInt("INCOMPLETE_RADIUS_PACKET_TIMEOUT", 30)) * time.Second,
 	}
+	if err := validate(cfg); err != nil {
+		return cfg, err
+	}
+	return cfg, nil
+}
+
+func validate(cfg Config) error {
 	if cfg.MikroTikPassword == "" {
-		return cfg, fmt.Errorf("MIKROTIK_PASSWORD is required")
+		return fmt.Errorf("MIKROTIK_PASSWORD is required")
 	}
 	if cfg.AdGuardPassword == "" {
-		return cfg, fmt.Errorf("ADGUARD_PASSWORD is required")
+		return fmt.Errorf("ADGUARD_PASSWORD is required")
 	}
 	if cfg.NxFilterEnabled {
 		if cfg.NxFilterHost == "" {
-			return cfg, fmt.Errorf("NXFILTER_HOST is required when NXFILTER_ENABLED=true")
+			return fmt.Errorf("NXFILTER_HOST is required when NXFILTER_ENABLED=true")
 		}
 		if cfg.NxFilterSharedSecret == "" {
-			return cfg, fmt.Errorf("NXFILTER_SHARED_SECRET is required when NXFILTER_ENABLED=true")
+			return fmt.Errorf("NXFILTER_SHARED_SECRET is required when NXFILTER_ENABLED=true")
 		}
 	}
-	return cfg, nil
+
+	for _, item := range []struct {
+		name string
+		port int
+	}{
+		{"MIKROTIK_PORT", cfg.MikroTikPort},
+		{"SYSLOG_LISTEN_PORT", cfg.SyslogPort},
+		{"NXFILTER_ACCOUNTING_PORT", cfg.NxFilterAccountingPort},
+	} {
+		if item.port < 1 || item.port > 65535 {
+			return fmt.Errorf("%s must be between 1 and 65535", item.name)
+		}
+	}
+
+	for _, item := range []struct {
+		name  string
+		value time.Duration
+	}{
+		{"ADGUARD_TIMEOUT", cfg.AdGuardTimeout},
+		{"ADGUARD_RETRY_INTERVAL", cfg.AdGuardRetryInterval},
+		{"ADGUARD_SYNC_DEBOUNCE", cfg.AdGuardSyncDebounce},
+		{"RECONCILE_INTERVAL", cfg.ReconcileInterval},
+		{"PRINT_TABLE_INTERVAL", cfg.PrintTableInterval},
+		{"INCOMPLETE_RADIUS_PACKET_TIMEOUT", cfg.IncompleteRadiusPacketTimeout},
+	} {
+		if item.value <= 0 {
+			return fmt.Errorf("%s must be greater than zero", item.name)
+		}
+	}
+
+	if cfg.NxFilterEnabled {
+		if cfg.NxFilterTimeout <= 0 {
+			return fmt.Errorf("NXFILTER_TIMEOUT must be greater than zero")
+		}
+		if cfg.NxFilterRefreshInterval < 0 {
+			return fmt.Errorf("NXFILTER_REFRESH_INTERVAL cannot be negative")
+		}
+	}
+
+	if cfg.KidControlAPIToken != "" && len(cfg.KidControlAPIToken) < 32 {
+		return fmt.Errorf("KID_CONTROL_API_TOKEN must be at least 32 characters when enabled")
+	}
+
+	return nil
 }
 
 func get(k, def string) string {

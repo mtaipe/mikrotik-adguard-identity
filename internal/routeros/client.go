@@ -14,6 +14,14 @@ import (
 	"git.tai.pe/homelab/mikrotik-adguard-identity/internal/util"
 )
 
+const (
+	// RouterOS API fields used by this service are small. Hard limits keep a
+	// malformed or hostile API peer from forcing unbounded allocations.
+	maxRouterOSWordSize         = 1 << 20 // 1 MiB
+	maxRouterOSWordsPerSentence = 1024
+	maxRouterOSRows             = 10000
+)
+
 type Client struct {
 	Host           string
 	Port           int
@@ -200,6 +208,12 @@ func readSentence(r *bufio.Reader) (sentence, error) {
 		if n == 0 {
 			return s, nil
 		}
+		if n > maxRouterOSWordSize {
+			return nil, fmt.Errorf("RouterOS API word too large: %d bytes", n)
+		}
+		if len(s) >= maxRouterOSWordsPerSentence {
+			return nil, fmt.Errorf("RouterOS API sentence has too many words")
+		}
 		b, e := readN(r, n)
 		if e != nil {
 			return nil, e
@@ -227,6 +241,9 @@ func readUntilDone(r *bufio.Reader) ([]map[string]string, error) {
 						m[kv[0]] = kv[1]
 					}
 				}
+			}
+			if len(rows) >= maxRouterOSRows {
+				return nil, fmt.Errorf("RouterOS API response has too many rows")
 			}
 			rows = append(rows, m)
 		case "!trap", "!fatal":

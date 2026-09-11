@@ -164,10 +164,30 @@ func (l *Listener) timers(ctx context.Context) {
 				}
 			}
 		case <-nxRefreshC:
-			if l.NxFilter != nil {
-				if err := l.NxFilter.Sync(ctx, true); err != nil {
-					log.Printf("nxFilter refresh failed: %v", err)
+			if l.NxFilter == nil {
+				continue
+			}
+
+			// Never extend nxFilter sessions from stale in-memory identity state.
+			// Verify both authoritative RouterOS sources immediately before a
+			// refresh. If RouterOS cannot be verified, allow the nxFilter session
+			// to expire naturally rather than preserving a potentially stale
+			// user-to-IP mapping.
+			changed, verified := l.Reconciler.Run(false)
+			if !verified {
+				log.Printf("nxFilter refresh skipped: RouterOS state could not be fully verified")
+				continue
+			}
+
+			if changed {
+				if !l.syncBackends(ctx) {
+					l.markDirty()
 				}
+				continue
+			}
+
+			if err := l.NxFilter.Sync(ctx, true); err != nil {
+				log.Printf("nxFilter refresh failed: %v", err)
 			}
 		}
 	}
