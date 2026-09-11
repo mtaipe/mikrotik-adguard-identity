@@ -11,14 +11,13 @@ The complete template is [`mikrotik-app/identity-sync.yaml`](../mikrotik-app/ide
 
 ```yaml
 name: mikrotik-adguard-identity
-descr: Synchronizes MikroTik RADIUS and DHCP identities with AdGuard Home clients
+descr: Correlates MikroTik RADIUS and DHCP identities for AdGuard Home and nxFilter
 category: network
 auto-update: false
 default-credential: none
-
 services:
   identity-sync:
-    image: git.tai.pe/homelab/mikrotik-adguard-identity:latest
+    image: docker.io/mtaipe/mikrotik-adguard-identity:1
     container_name: mikrotik-adguard-identity
     environment:
       MIKROTIK_HOST: "192.168.0.1"
@@ -27,18 +26,14 @@ services:
       ADGUARD_URL: "http://192.168.0.103"
       ADGUARD_USER: "admin"
       ADGUARD_PASSWORD: ""
-      KID_CONTROL_API_TOKEN: ""
-      NXFILTER_ENABLED: "false"
-      NXFILTER_HOST: ""
-      NXFILTER_SHARED_SECRET: ""
     ports:
       - 1514:1514/udp:syslog
       - 8080:8080/tcp:web
-
 networks:
   default:
     name: lan
     external: true
+
 ```
 
 After pasting the template into MikroTik Apps, use the App **General** tab to set addresses and credentials. Optional Kid Control and nxFilter settings are also exposed there; leave them disabled/empty when unused.
