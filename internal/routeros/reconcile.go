@@ -4,6 +4,7 @@ import (
 	"log"
 	"time"
 
+	applog "git.tai.pe/homelab/mikrotik-adguard-identity/internal/logging"
 	"git.tai.pe/homelab/mikrotik-adguard-identity/internal/state"
 	appstatus "git.tai.pe/homelab/mikrotik-adguard-identity/internal/status"
 )
@@ -43,12 +44,15 @@ func (r Reconciler) Run(startup bool) (changed bool, verified bool) {
 	if r.State.ReconcileDHCP(leases) {
 		changed = true
 	}
-	log.Printf("RouterOS reconcile: %d active RADIUS sessions, %d bound DHCP leases", len(sessions), len(leases))
+	if startup || changed {
+		log.Printf("RouterOS reconcile: %d active RADIUS sessions, %d bound DHCP leases", len(sessions), len(leases))
+	} else {
+		applog.Debugf("RouterOS reconcile unchanged: %d active RADIUS sessions, %d bound DHCP leases", len(sessions), len(leases))
+	}
 
 	if r.Status != nil {
 		r.Status.RouterOSSuccess(time.Now())
 	}
-	_ = startup
 	return changed, true
 }
 

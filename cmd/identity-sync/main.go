@@ -10,6 +10,7 @@ import (
 	"git.tai.pe/homelab/mikrotik-adguard-identity/internal/adguard"
 	"git.tai.pe/homelab/mikrotik-adguard-identity/internal/config"
 	"git.tai.pe/homelab/mikrotik-adguard-identity/internal/httpapi"
+	applog "git.tai.pe/homelab/mikrotik-adguard-identity/internal/logging"
 	"git.tai.pe/homelab/mikrotik-adguard-identity/internal/nxfilter"
 	"git.tai.pe/homelab/mikrotik-adguard-identity/internal/radius"
 	"git.tai.pe/homelab/mikrotik-adguard-identity/internal/routeros"
@@ -24,6 +25,9 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	if err := applog.Configure(cfg.LogLevel); err != nil {
+		log.Fatal(err)
+	}
 	st := state.New()
 	tracker := appstatus.New()
 	rc := routeros.NewClient(cfg.MikroTikHost, cfg.MikroTikPort, cfg.MikroTikUser, cfg.MikroTikPassword)
@@ -32,7 +36,7 @@ func main() {
 	nxf := nxfilter.New(cfg.NxFilterEnabled, cfg.NxFilterHost, cfg.NxFilterAccountingPort, cfg.NxFilterSharedSecret, cfg.NxFilterNASIdentifier, cfg.NxFilterTimeout, cfg.NxFilterRefreshInterval, st, tracker)
 
 	_, verified := reconciler.Run(true)
-	log.Print("\n" + st.Table())
+	applog.Debugf("initial identity state:\n%s", st.Table())
 	if verified {
 		if err := ag.Sync(true); err != nil {
 			log.Printf("initial AdGuard sync failed: %v", err)

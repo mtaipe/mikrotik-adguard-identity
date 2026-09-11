@@ -26,9 +26,8 @@ type Config struct {
 	SyslogAddress        string
 	SyslogPort           int
 	SyslogAllowedSources []string
-
-	HTTPAddress        string
-	KidControlAPIToken string
+	HTTPAddress          string
+	KidControlAPIToken   string
 
 	NxFilterEnabled         bool
 	NxFilterHost            string
@@ -37,6 +36,8 @@ type Config struct {
 	NxFilterNASIdentifier   string
 	NxFilterTimeout         time.Duration
 	NxFilterRefreshInterval time.Duration
+
+	LogLevel string
 
 	ReconcileInterval             time.Duration
 	PrintTableInterval            time.Duration
@@ -69,8 +70,9 @@ func Load() (Config, error) {
 		NxFilterNASIdentifier:         get("NXFILTER_NAS_IDENTIFIER", "mikrotik-adguard-identity"),
 		NxFilterTimeout:               time.Duration(getInt("NXFILTER_TIMEOUT", 5)) * time.Second,
 		NxFilterRefreshInterval:       time.Duration(getInt("NXFILTER_REFRESH_INTERVAL", 300)) * time.Second,
+		LogLevel:                      get("LOG_LEVEL", "info"),
 		ReconcileInterval:             time.Duration(getInt("RECONCILE_INTERVAL", 1800)) * time.Second,
-		PrintTableInterval:            time.Duration(getInt("PRINT_TABLE_INTERVAL", 60)) * time.Second,
+		PrintTableInterval:            time.Duration(getInt("PRINT_TABLE_INTERVAL", 0)) * time.Second,
 		IncompleteRadiusPacketTimeout: time.Duration(getInt("INCOMPLETE_RADIUS_PACKET_TIMEOUT", 30)) * time.Second,
 	}
 	if err := validate(cfg); err != nil {
@@ -116,7 +118,6 @@ func validate(cfg Config) error {
 		{"ADGUARD_RETRY_INTERVAL", cfg.AdGuardRetryInterval},
 		{"ADGUARD_SYNC_DEBOUNCE", cfg.AdGuardSyncDebounce},
 		{"RECONCILE_INTERVAL", cfg.ReconcileInterval},
-		{"PRINT_TABLE_INTERVAL", cfg.PrintTableInterval},
 		{"INCOMPLETE_RADIUS_PACKET_TIMEOUT", cfg.IncompleteRadiusPacketTimeout},
 	} {
 		if item.value <= 0 {
@@ -124,6 +125,9 @@ func validate(cfg Config) error {
 		}
 	}
 
+	if cfg.PrintTableInterval < 0 {
+		return fmt.Errorf("PRINT_TABLE_INTERVAL cannot be negative")
+	}
 	if cfg.NxFilterEnabled {
 		if cfg.NxFilterTimeout <= 0 {
 			return fmt.Errorf("NXFILTER_TIMEOUT must be greater than zero")
@@ -132,11 +136,14 @@ func validate(cfg Config) error {
 			return fmt.Errorf("NXFILTER_REFRESH_INTERVAL cannot be negative")
 		}
 	}
-
 	if cfg.KidControlAPIToken != "" && len(cfg.KidControlAPIToken) < 32 {
 		return fmt.Errorf("KID_CONTROL_API_TOKEN must be at least 32 characters when enabled")
 	}
-
+	switch strings.ToLower(strings.TrimSpace(cfg.LogLevel)) {
+	case "info", "debug":
+	default:
+		return fmt.Errorf("LOG_LEVEL must be info or debug")
+	}
 	return nil
 }
 
@@ -160,7 +167,6 @@ func getBool(k string, def bool) bool {
 	}
 	return def
 }
-
 func loadDotEnv(path string) error {
 	f, err := os.Open(path)
 	if err != nil {
@@ -185,7 +191,6 @@ func loadDotEnv(path string) error {
 	}
 	return s.Err()
 }
-
 func getCSV(k, def string) []string {
 	v := strings.TrimSpace(os.Getenv(k))
 	if v == "" {

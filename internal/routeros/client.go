@@ -15,9 +15,7 @@ import (
 )
 
 const (
-	// RouterOS API fields used by this service are small. Hard limits keep a
-	// malformed or hostile API peer from forcing unbounded allocations.
-	maxRouterOSWordSize         = 1 << 20 // 1 MiB
+	maxRouterOSWordSize         = 1 << 20
 	maxRouterOSWordsPerSentence = 1024
 	maxRouterOSRows             = 10000
 )

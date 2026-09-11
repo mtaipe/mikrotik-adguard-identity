@@ -12,6 +12,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	applog "git.tai.pe/homelab/mikrotik-adguard-identity/internal/logging"
 	"git.tai.pe/homelab/mikrotik-adguard-identity/internal/state"
 	appstatus "git.tai.pe/homelab/mikrotik-adguard-identity/internal/status"
 )
@@ -135,7 +136,7 @@ func (c *Client) Sync(ctx context.Context, forceRefresh bool) error {
 				syncErr = fmt.Errorf("nxFilter interim user=%s ip=%s: %w", i.User, i.IP, err)
 				return syncErr
 			}
-			log.Printf("nxFilter Interim-Update user=%s mac=%s ip=%s", i.User, i.MAC, i.IP)
+			applog.Debugf("nxFilter Interim-Update user=%s mac=%s ip=%s", i.User, i.MAC, i.IP)
 		}
 	}
 	return nil

@@ -13,10 +13,10 @@ func TestRouterOSTruthy(t *testing.T) {
 			t.Errorf("expected %q to be truthy", value)
 		}
 	}
-	falsey := []string{"no", "false", "0", "off", "", "disabled"}
-	for _, value := range falsey {
+	falsy := []string{"no", "false", "0", "off", "", "disabled"}
+	for _, value := range falsy {
 		if routerOSTruthy(value) {
-			t.Errorf("expected %q to be falsey", value)
+			t.Errorf("expected %q to be falsy", value)
 		}
 	}
 }

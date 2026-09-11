@@ -11,6 +11,7 @@ import (
 
 	"git.tai.pe/homelab/mikrotik-adguard-identity/internal/adguard"
 	"git.tai.pe/homelab/mikrotik-adguard-identity/internal/dhcp"
+	applog "git.tai.pe/homelab/mikrotik-adguard-identity/internal/logging"
 	"git.tai.pe/homelab/mikrotik-adguard-identity/internal/nxfilter"
 	"git.tai.pe/homelab/mikrotik-adguard-identity/internal/radius"
 	"git.tai.pe/homelab/mikrotik-adguard-identity/internal/routeros"
@@ -121,10 +122,17 @@ func (l *Listener) syncBackends(ctx context.Context) bool {
 func (l *Listener) timers(ctx context.Context) {
 	reconcile := time.NewTicker(l.ReconcileInterval)
 	defer reconcile.Stop()
-	printT := time.NewTicker(l.PrintInterval)
-	defer printT.Stop()
+	var printT *time.Ticker
+	var printC <-chan time.Time
+	if l.PrintInterval > 0 {
+		printT = time.NewTicker(l.PrintInterval)
+		printC = printT.C
+		defer printT.Stop()
+	}
 	cleanup := time.NewTicker(10 * time.Second)
 	defer cleanup.Stop()
+	dropReport := time.NewTicker(time.Minute)
+	defer dropReport.Stop()
 	syncT := time.NewTicker(l.SyncDebounce)
 	defer syncT.Stop()
 	var nxRefresh *time.Ticker
@@ -143,8 +151,9 @@ func (l *Listener) timers(ctx context.Context) {
 			if verified && changed && !l.syncBackends(ctx) {
 				l.markDirty()
 			}
-		case <-printT.C:
-			log.Print("\n" + l.State.Table())
+		case <-printC:
+			applog.Debugf("identity state:\n%s", l.State.Table())
+		case <-dropReport.C:
 			if n := l.dropped.Swap(0); n > 0 {
 				log.Printf("syslog security: dropped %d datagrams from unauthorized sources since last report", n)
 			}
@@ -167,25 +176,18 @@ func (l *Listener) timers(ctx context.Context) {
 			if l.NxFilter == nil {
 				continue
 			}
-
 			// Never extend nxFilter sessions from stale in-memory identity state.
-			// Verify both authoritative RouterOS sources immediately before a
-			// refresh. If RouterOS cannot be verified, allow the nxFilter session
-			// to expire naturally rather than preserving a potentially stale
-			// user-to-IP mapping.
 			changed, verified := l.Reconciler.Run(false)
 			if !verified {
 				log.Printf("nxFilter refresh skipped: RouterOS state could not be fully verified")
 				continue
 			}
-
 			if changed {
 				if !l.syncBackends(ctx) {
 					l.markDirty()
 				}
 				continue
 			}
-
 			if err := l.NxFilter.Sync(ctx, true); err != nil {
 				log.Printf("nxFilter refresh failed: %v", err)
 			}

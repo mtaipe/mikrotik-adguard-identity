@@ -7,7 +7,39 @@
 On a MikroTik router with the container/custom app feature enabled, the
 service can run directly on the router.
 
-The complete template is [`mikrotik-app/identity-sync.yaml`](../mikrotik-app/identity-sync.yaml).
+The complete template is [`mikrotik-app/identity-sync.yaml`](../mikrotik-app/identity-sync.yaml). Its service configuration begins with:
+
+```yaml
+name: mikrotik-adguard-identity
+descr: Synchronizes MikroTik RADIUS and DHCP identities with AdGuard Home clients
+category: network
+auto-update: false
+default-credential: none
+
+services:
+  identity-sync:
+    image: git.tai.pe/homelab/mikrotik-adguard-identity:latest
+    container_name: mikrotik-adguard-identity
+    environment:
+      MIKROTIK_HOST: "192.168.0.1"
+      MIKROTIK_USER: "identitysync"
+      MIKROTIK_PASSWORD: ""
+      ADGUARD_URL: "http://192.168.0.103"
+      ADGUARD_USER: "admin"
+      ADGUARD_PASSWORD: ""
+      KID_CONTROL_API_TOKEN: ""
+      NXFILTER_ENABLED: "false"
+      NXFILTER_HOST: ""
+      NXFILTER_SHARED_SECRET: ""
+    ports:
+      - 1514:1514/udp:syslog
+      - 8080:8080/tcp:web
+
+networks:
+  default:
+    name: lan
+    external: true
+```
 
 After pasting the template into MikroTik Apps, use the App **General** tab to set addresses and credentials. Optional Kid Control and nxFilter settings are also exposed there; leave them disabled/empty when unused.
 
@@ -62,7 +94,7 @@ These can normally be omitted from the MikroTik App YAML.
 | `SYSLOG_ALLOWED_SOURCES` | `MIKROTIK_HOST` | Comma-separated router IPs or CIDRs allowed to trigger reconciliation. Unauthorized UDP datagrams are dropped before parsing. |
 | `HTTP_LISTEN_ADDRESS` | `0.0.0.0:8080` | HTTP address for `/health`, `/api/status`, and the optional Kid Control endpoint. |
 | `RECONCILE_INTERVAL` | `1800` | Seconds between full RouterOS reconciliation runs (30 minutes). |
-| `PRINT_TABLE_INTERVAL` | `60` | Seconds between identity-state summaries in the application log. |
+| `PRINT_TABLE_INTERVAL` | `0` | Seconds between identity-state summaries in the application log. |
 | `INCOMPLETE_RADIUS_PACKET_TIMEOUT` | `30` | Seconds before an incomplete reconstructed RADIUS packet is discarded. |
 | `KID_CONTROL_API_TOKEN` | empty | Enables and protects `/api/kid-control`. When empty, that endpoint is disabled. |
 | `NXFILTER_ENABLED` | `false` | Enables the nxFilter RADIUS Accounting backend. |
@@ -192,3 +224,8 @@ UDP syslog is **not an authoritative identity source**. Source IP filtering is o
 
 For additional isolation, firewall UDP/1514 so only the router(s) can reach the application. `SYSLOG_ALLOWED_SOURCES` should also contain only those router IPs. If either authoritative RouterOS API read fails, the service leaves the previous trusted state unchanged and does not publish a new identity mapping.
 
+
+
+## Logging verbosity
+
+`LOG_LEVEL` defaults to `info`. Set it to `debug` to show high-frequency/no-op diagnostics such as nxFilter Interim-Update messages, unchanged RouterOS reconciliations, and the optional identity table. `PRINT_TABLE_INTERVAL` defaults to `0` (disabled); set it to a positive number of seconds together with `LOG_LEVEL=debug` to print the identity table periodically.
