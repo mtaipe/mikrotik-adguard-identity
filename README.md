@@ -8,19 +8,21 @@ If your network uses MikroTik User Manager or another RADIUS server for
 WPA-Enterprise Wi-Fi or wired 802.1X, AdGuard Home normally sees only IP
 addresses. This service connects the missing identity information:
 
-``` text
-RADIUS accounting                 DHCP
-username → MAC                    MAC → IP
-          \                        /
-           \                      /
-            └── Identity Sync ───┘
-                     │
-                     ▼
-            resolved identity
-             username → current IPs
-                 /          \
-                v            v
-          AdGuard Home    nxFilter
+```mermaid
+flowchart TD
+    R["RADIUS sessions<br/>username → MAC"]
+    D["DHCP leases<br/>MAC → IP"]
+
+    M["MikroTik RouterOS"]
+    R --> M
+    D --> M
+
+    M -->|"RouterOS API"| I["Identity Sync"]
+
+    I --> RI["Resolved identity<br/>username → current IPs"]
+
+    RI --> A["AdGuard Home"]
+    RI --> N["nxFilter"]
 ```
 
 ## Why?

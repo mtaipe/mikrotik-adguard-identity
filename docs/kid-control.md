@@ -1,19 +1,17 @@
 # MikroTik Kid Control synchronization
 
-Identity Sync can provide the current RADIUS-derived **user → MAC address** map to a RouterOS script. The Go service keeps its RouterOS API account read-only; all Kid Control writes happen locally on RouterOS.
+Identity Sync can provide the current RADIUS-derived **user → MAC address** map to a RouterOS script. All Kid Control writes happen locally on RouterOS, it pulls the mapping using this service API.
 
-```text
-RADIUS accounting
-      │
-      ▼
-Identity Sync
-      │
-      │ GET /api/kid-control
-      ▼
-RouterOS script
-      │
-      ▼
-/ip kid-control device
+```mermaid
+flowchart TD
+    R["RADIUS Accounting"]
+    I["Identity Sync"]
+    S["RouterOS Script"]
+    K["/ip kid-control device"]
+
+    R --> I
+    I -->|"GET /api/kid-control"| S
+    S --> K
 ```
 
 ## Behavior
@@ -96,11 +94,7 @@ You should receive JSON containing `devices`.
 
 ## 3. Install the RouterOS script
 
-The repository includes:
-
-```text
-scripts/kid-control-sync.rsc
-```
+The repository includes: [`scripts/kid-control-sync.rsc`](../scripts/kid-control-sync.rsc)
 
 Open the file and change these two lines:
 

@@ -4,18 +4,17 @@ Identity Sync can feed resolved MikroTik identities to **nxFilter 4.7.5.4** by a
 
 This is useful with MikroTik 802.1X because RouterOS accounting packets may contain the authenticated username and client MAC address but no `Framed-IP-Address`. Identity Sync already joins RADIUS and DHCP state, so it can send nxFilter an enriched accounting packet containing the username and actual client IP.
 
-```text
-MikroTik RADIUS: username -> MAC
-MikroTik DHCP:   MAC -> IP
-                         |
-                         v
-                  Identity Sync
-                         |
-             enriched RADIUS Accounting
-                         |
-                         v
-                      nxFilter
-                  IP -> username session
+```mermaid
+flowchart TD
+    R["MikroTik RADIUS<br/>username → MAC"]
+    D["MikroTik DHCP<br/>MAC → IP"]
+
+    R --> I["Identity Sync"]
+    D --> I
+
+    I -->|"Enriched RADIUS Accounting"| N["nxFilter"]
+
+    N --> S["Authenticated session<br/>IP → username"]
 ```
 
 ## nxFilter configuration

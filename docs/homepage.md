@@ -76,6 +76,8 @@ Example `customapi` widget:
 
 ``` yaml
 widget:
+  siteMonitor: http://mikrotik-adguard-identity:8080/health
+  statusStyle: basic
   type: customapi
   url: http://mikrotik-adguard-identity:8080/api/status
   mappings:
