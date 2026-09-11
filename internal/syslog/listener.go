@@ -23,7 +23,6 @@ type Listener struct {
 	Port              int
 	AllowedSources    []string
 	State             *state.State
-	Radius            *radius.Parser
 	Reconciler        routeros.Reconciler
 	AdGuard           *adguard.Client
 	NxFilter          *nxfilter.Client
@@ -47,6 +46,7 @@ func (l *Listener) Run(ctx context.Context) error {
 
 	go l.timers(ctx)
 	buf := make([]byte, 65535)
+	readFailures := 0
 	for {
 		_ = conn.SetReadDeadline(time.Now().Add(time.Second))
 		n, remote, err := conn.ReadFromUDP(buf)
@@ -59,8 +59,28 @@ func (l *Listener) Run(ctx context.Context) error {
 			}
 		}
 		if err != nil {
-			return err
+			select {
+			case <-ctx.Done():
+				return nil
+			default:
+			}
+			readFailures++
+			if readFailures > 5 {
+				return fmt.Errorf("syslog UDP read failed after retries: %w", err)
+			}
+			backoff := time.Duration(1<<(readFailures-1)) * 100 * time.Millisecond
+			if backoff > 2*time.Second {
+				backoff = 2 * time.Second
+			}
+			log.Printf("syslog UDP read error; retrying in %s", backoff)
+			select {
+			case <-ctx.Done():
+				return nil
+			case <-time.After(backoff):
+				continue
+			}
 		}
+		readFailures = 0
 		if !sourceAllowed(remote.IP, l.AllowedSources) {
 			l.dropped.Add(1)
 			continue
@@ -70,8 +90,10 @@ func (l *Listener) Run(ctx context.Context) error {
 		// be spoofed, so parsed RADIUS/DHCP content is never applied to trusted
 		// identity state. A relevant event only schedules a fresh read of the
 		// authoritative RouterOS API state.
+		// Parsing is synchronous in this goroutine. raw is copied into a string
+		// before the reusable UDP buffer is used by the next ReadFromUDP call.
 		raw := string(buf[:n])
-		if _, ok := l.Radius.Feed(raw, remote.IP.String()); ok {
+		if radius.IsAccountingLog(raw) {
 			l.markDirty()
 			continue
 		}
@@ -129,8 +151,6 @@ func (l *Listener) timers(ctx context.Context) {
 		printC = printT.C
 		defer printT.Stop()
 	}
-	cleanup := time.NewTicker(10 * time.Second)
-	defer cleanup.Stop()
 	dropReport := time.NewTicker(time.Minute)
 	defer dropReport.Stop()
 	syncT := time.NewTicker(l.SyncDebounce)
@@ -157,8 +177,6 @@ func (l *Listener) timers(ctx context.Context) {
 			if n := l.dropped.Swap(0); n > 0 {
 				log.Printf("syslog security: dropped %d datagrams from unauthorized sources since last report", n)
 			}
-		case <-cleanup.C:
-			l.Radius.Cleanup()
 		case <-syncT.C:
 			if l.dirty.Swap(false) {
 				// A syslog event is only a wake-up signal. Always re-read both
@@ -173,7 +191,7 @@ func (l *Listener) timers(ctx context.Context) {
 				}
 			}
 		case <-nxRefreshC:
-			if l.NxFilter == nil {
+			if l.NxFilter == nil || !l.NxFilter.Enabled {
 				continue
 			}
 			// Never extend nxFilter sessions from stale in-memory identity state.

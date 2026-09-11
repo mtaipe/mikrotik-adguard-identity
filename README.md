@@ -201,7 +201,7 @@ widget configuration.
 -   [nxFilter integration](docs/nxfilter.md) - enriched RADIUS Accounting SSO for
     nxFilter 4.7.5.4.
 -   [Troubleshooting](docs/troubleshooting.md) - RADIUS reconciliation,
-    API checks, parser limitations and diagnostics.
+    API checks, syslog security and diagnostics.
 
 ## Project layout
 
@@ -212,7 +212,7 @@ internal/config/                environment/.env configuration
 internal/dhcp/                  DHCP syslog parser
 internal/models/                event/state models
 internal/nxfilter/              nxFilter RADIUS Accounting backend
-internal/radius/                RADIUS accounting syslog parser
+internal/radius/                stateless RADIUS accounting trigger detection
 internal/routeros/              native RouterOS API client + reconciliation
 internal/state/                 in-memory identity state
 internal/syslog/                UDP listener and timers
@@ -223,15 +223,17 @@ mikrotik-app/identity-sync.yaml  MikroTik App template
 Dockerfile
 ```
 
-## Known limitation
+## Syslog security model
 
-RouterOS syslog attribute lines for a RADIUS accounting packet do not
-contain the packet ID. The parser therefore tracks the currently open
-accounting packet per syslog source. This matches the observed RouterOS
-stream, but theoretically cannot disambiguate two accounting packets
-whose attribute lines are interleaved from the same source.
+RouterOS syslog is treated only as an untrusted change notification. The
+service does not reconstruct or trust RADIUS attributes from syslog. A relevant
+RADIUS accounting or DHCP event only triggers a fresh read of active sessions
+and bound leases through the RouterOS API. Backend updates are published only
+after both authoritative reads succeed.
 
-See [Troubleshooting](docs/troubleshooting.md) for details.
+`SYSLOG_ALLOWED_SOURCES` and firewall rules are defense in depth; RouterOS API
+reconciliation remains the trust boundary. See
+[Troubleshooting](docs/troubleshooting.md) for details.
 
 ## Development and AI Assistance
 

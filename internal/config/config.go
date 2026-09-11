@@ -41,7 +41,6 @@ type Config struct {
 
 	ReconcileInterval             time.Duration
 	PrintTableInterval            time.Duration
-	IncompleteRadiusPacketTimeout time.Duration
 }
 
 func Load() (Config, error) {
@@ -73,7 +72,6 @@ func Load() (Config, error) {
 		LogLevel:                      get("LOG_LEVEL", "info"),
 		ReconcileInterval:             time.Duration(getInt("RECONCILE_INTERVAL", 1800)) * time.Second,
 		PrintTableInterval:            time.Duration(getInt("PRINT_TABLE_INTERVAL", 0)) * time.Second,
-		IncompleteRadiusPacketTimeout: time.Duration(getInt("INCOMPLETE_RADIUS_PACKET_TIMEOUT", 30)) * time.Second,
 	}
 	if err := validate(cfg); err != nil {
 		return cfg, err
@@ -118,7 +116,6 @@ func validate(cfg Config) error {
 		{"ADGUARD_RETRY_INTERVAL", cfg.AdGuardRetryInterval},
 		{"ADGUARD_SYNC_DEBOUNCE", cfg.AdGuardSyncDebounce},
 		{"RECONCILE_INTERVAL", cfg.ReconcileInterval},
-		{"INCOMPLETE_RADIUS_PACKET_TIMEOUT", cfg.IncompleteRadiusPacketTimeout},
 	} {
 		if item.value <= 0 {
 			return fmt.Errorf("%s must be greater than zero", item.name)

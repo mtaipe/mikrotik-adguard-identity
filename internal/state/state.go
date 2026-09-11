@@ -32,9 +32,13 @@ func sessionKey(nasID, nasIP, sid string) string {
 }
 
 func (s *State) ApplyRadius(ev models.RadiusEvent) bool {
+	k := sessionKey(ev.NASID, ev.NASIP, ev.SessionID)
+	username := util.NormalizeUsername(ev.Username)
+	mac := util.NormalizeMAC(ev.MAC)
+	now := time.Now()
+
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	k := sessionKey(ev.NASID, ev.NASIP, ev.SessionID)
 	if ev.Type == models.RadiusStop {
 		if _, ok := s.sessions[k]; ok {
 			delete(s.sessions, k)
@@ -43,9 +47,9 @@ func (s *State) ApplyRadius(ev models.RadiusEvent) bool {
 		return false
 	}
 	n := models.RadiusSession{
-		Key: k, SessionID: ev.SessionID, Username: util.NormalizeUsername(ev.Username),
-		MAC: util.NormalizeMAC(ev.MAC), NASID: ev.NASID, NASIP: ev.NASIP,
-		NASPortID: ev.NASPortID, UpdatedAt: time.Now(),
+		Key: k, SessionID: ev.SessionID, Username: username,
+		MAC: mac, NASID: ev.NASID, NASIP: ev.NASIP,
+		NASPortID: ev.NASPortID, UpdatedAt: now,
 	}
 	old, ok := s.sessions[k]
 	s.sessions[k] = n
@@ -53,11 +57,12 @@ func (s *State) ApplyRadius(ev models.RadiusEvent) bool {
 }
 
 func (s *State) ApplyDHCP(ev models.DHCPEvent) bool {
+	mac := util.NormalizeMAC(ev.MAC)
+	now := time.Now()
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	mac := util.NormalizeMAC(ev.MAC)
 	old, ok := s.bindings[mac]
-	s.bindings[mac] = models.DHCPBinding{IP: ev.IP, MAC: mac, UpdatedAt: time.Now()}
+	s.bindings[mac] = models.DHCPBinding{IP: ev.IP, MAC: mac, UpdatedAt: now}
 	return !ok || old.IP != ev.IP
 }
 

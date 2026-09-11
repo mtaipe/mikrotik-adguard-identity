@@ -10,8 +10,8 @@ func TestNormalizeMAC(t *testing.T) {
 }
 
 func TestStableClientIDIsCaseInsensitive(t *testing.T) {
-	a := StableClientID("Alice")
-	b := StableClientID(" alice ")
+	a := StableClientID("Eunice")
+	b := StableClientID(" eunice ")
 	if a != b {
 		t.Fatalf("IDs differ: %q %q", a, b)
 	}

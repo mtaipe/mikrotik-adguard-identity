@@ -20,7 +20,6 @@ func validTestConfig() Config {
 		NxFilterRefreshInterval:       5 * time.Minute,
 		ReconcileInterval:             30 * time.Minute,
 		PrintTableInterval:            0,
-		IncompleteRadiusPacketTimeout: 30 * time.Second,
 		LogLevel: "info",
 	}
 }

@@ -22,7 +22,8 @@ type Reconciler struct {
 func (r Reconciler) Run(startup bool) (changed bool, verified bool) {
 	sessions, err := r.Client.ActiveSessions()
 	if err != nil {
-		log.Printf("RouterOS active-session reconcile failed: %v", err)
+		log.Printf("RouterOS active-session reconcile failed")
+		applog.Debugf("RouterOS active-session reconcile error detail: %v", err)
 		if r.Status != nil {
 			r.Status.RouterOSError(time.Now(), err)
 		}
@@ -31,7 +32,8 @@ func (r Reconciler) Run(startup bool) (changed bool, verified bool) {
 
 	leases, err := r.Client.BoundLeases()
 	if err != nil {
-		log.Printf("RouterOS DHCP reconcile failed: %v", err)
+		log.Printf("RouterOS DHCP reconcile failed")
+		applog.Debugf("RouterOS DHCP reconcile error detail: %v", err)
 		if r.Status != nil {
 			r.Status.RouterOSError(time.Now(), err)
 		}

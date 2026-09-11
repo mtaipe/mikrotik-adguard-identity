@@ -12,7 +12,6 @@ import (
 	"git.tai.pe/homelab/mikrotik-adguard-identity/internal/httpapi"
 	applog "git.tai.pe/homelab/mikrotik-adguard-identity/internal/logging"
 	"git.tai.pe/homelab/mikrotik-adguard-identity/internal/nxfilter"
-	"git.tai.pe/homelab/mikrotik-adguard-identity/internal/radius"
 	"git.tai.pe/homelab/mikrotik-adguard-identity/internal/routeros"
 	"git.tai.pe/homelab/mikrotik-adguard-identity/internal/state"
 	appstatus "git.tai.pe/homelab/mikrotik-adguard-identity/internal/status"
@@ -59,7 +58,7 @@ func main() {
 		}
 	}()
 
-	listener := &appsyslog.Listener{Address: cfg.SyslogAddress, Port: cfg.SyslogPort, AllowedSources: cfg.SyslogAllowedSources, State: st, Radius: radius.New(cfg.IncompleteRadiusPacketTimeout), Reconciler: reconciler, AdGuard: ag, NxFilter: nxf, ReconcileInterval: cfg.ReconcileInterval, PrintInterval: cfg.PrintTableInterval, SyncDebounce: cfg.AdGuardSyncDebounce}
+	listener := &appsyslog.Listener{Address: cfg.SyslogAddress, Port: cfg.SyslogPort, AllowedSources: cfg.SyslogAllowedSources, State: st, Reconciler: reconciler, AdGuard: ag, NxFilter: nxf, ReconcileInterval: cfg.ReconcileInterval, PrintInterval: cfg.PrintTableInterval, SyncDebounce: cfg.AdGuardSyncDebounce}
 	if err := listener.Run(ctx); err != nil {
 		log.Fatal(err)
 	}

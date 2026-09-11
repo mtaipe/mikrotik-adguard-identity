@@ -113,18 +113,20 @@ NAS-IP-Address + Acct-Session-Id
 This prevents collisions when multiple NAS devices reuse the same
 accounting session ID.
 
-## Known RADIUS syslog parser limitation
+## Syslog security and event handling
 
-RouterOS syslog attribute lines for an accounting packet do not contain
-the packet ID.
+Syslog is deliberately **trigger-only**. Identity Sync does not reconstruct a
+RADIUS accounting transaction from syslog attributes and does not apply DHCP or
+RADIUS values from UDP messages to trusted identity state.
 
-The parser therefore tracks the currently open accounting packet per
-syslog source. This matches the observed RouterOS stream, but
-theoretically cannot disambiguate two accounting packets whose attribute
-lines are interleaved from the same source.
+A recognized accounting or DHCP event marks the state dirty. After the debounce
+interval, Identity Sync reads both active User Manager sessions and bound DHCP
+leases from RouterOS API. Only a complete successful read can update AdGuard or
+nxFilter.
 
-Periodic RouterOS API reconciliation provides a self-healing path if
-runtime state becomes inconsistent.
+This avoids trusting spoofable UDP contents and also removes the need to retain
+per-packet RADIUS parser state. Use `SYSLOG_ALLOWED_SOURCES` and RouterOS/firewall
+rules to reduce unnecessary trigger traffic.
 
 ## AdGuard IP ownership conflicts
 
