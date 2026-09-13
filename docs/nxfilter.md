@@ -27,7 +27,13 @@ In nxFilter, open **User > RADIUS** and configure:
 - **Enable Logout:** enabled
 - **Auto-register for New User:** optional
 
-Restart nxFilter after changing the RADIUS settings. nxFilter documents UDP/1813 as its default accounting port and uses `Acct-Status-Type = Stop` to destroy the user login session when **Enable Logout** is enabled.
+Then open **System > Setup** and enable:
+
+- **Enable User Authentication:** enabled
+
+**Enable User Authentication is required.** Identity Sync can successfully create and refresh RADIUS login sessions without this option, but nxFilter will not associate DNS requests with those authenticated users. DNS requests may therefore appear under `anon-user` even though the RADIUS logs show the correct username and IP address.
+
+Restart nxFilter after changing the RADIUS settings. nxFilter uses UDP/1813 as its default accounting port and uses `Acct-Status-Type = Stop` to destroy the user login session when **Enable Logout** is enabled.
 
 Restrict UDP/1813 at the host/firewall so only the Identity Sync app/server can send accounting traffic to nxFilter.
 
